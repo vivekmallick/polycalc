@@ -56,9 +56,9 @@ compactPoly :: (Num a, Eq a) => Poly a -> Poly a
 compactPoly (PolyL ls) = PolyL ls
 compactPoly (PolyS sl) = PolyS (compactScarceList sl)
 
-polyLToPolyS :: (Num a) => Poly a -> Poly a
-polyLToPolyS (PolyS z) = PolyS z
-polyLToPolyS (PolyL ls) = PolyS (convLCtoSL ls)
+polyLToPolyS :: (Num a, Eq a) => Poly a -> Poly a
+polyLToPolyS (PolyS z) = compactPoly (PolyS z)
+polyLToPolyS (PolyL ls) = compactPoly (PolyS (convLCtoSL ls))
 
 showScarceLst :: (Show a) => ScarceLst a -> String
 showScarceLst [] = "0"
@@ -71,7 +71,7 @@ showScarceLst [(x, n)] =
 showScarceLst (y:ys) = (showScarceLst [y]) ++ " + " ++ (showScarceLst ys)
 
 showPoly :: (Num a, Show a, Eq a) => Poly a -> String
-showPoly (PolyS ls) = showScarceLst (compactScarceList (stripTrivialTerms ls))
+showPoly (PolyS ls) = showScarceLst (stripTrivialTerms (compactScarceList (stripTrivialTerms ls)))
 showPoly (PolyL ls) = showPoly (polyLToPolyS (PolyL ls))
 
 instance (Num a, Eq a, Show a) => Show (Poly a) where
@@ -81,7 +81,9 @@ maxPower :: (ScarceLst a) -> Int
 maxPower sl = maximum (map snd sl)
 
 convCptSLtoLC' :: (Num a) => (ScarceLst a) -> Int -> (LstCoeff a) -> (LstCoeff a)
-convCptSLtoLC' [] _ lc = lc
+convCptSLtoLC' [(x,0)] 0 lc = x:lc
+convCptSLtoLC' [] 0 lc = 0:lc
+convCptSLtoLC' [] i lc = convCptSLtoLC' [] (i-1) (0:lc)
 convCptSLtoLC' sl i lc = 
     let (x, n) = last sl
         slrest = init sl
@@ -90,11 +92,12 @@ convCptSLtoLC' sl i lc =
         else convCptSLtoLC' sl (i-1) (0 : lc)
 
 convCptSLtoLC :: (Num a) => (ScarceLst a) -> (LstCoeff a)
+convCptSLtoLC [] = []
 convCptSLtoLC sl = convCptSLtoLC' sl (maxPower sl) []
 
 polySToPolyL :: (Num a, Eq a) => Poly a -> Poly a
 polySToPolyL (PolyL ls) = PolyL ls
-polySToPolyL (PolyS sl) = PolyL ((convCptSLtoLC . compactScarceList) sl)
+polySToPolyL (PolyS sl) = PolyL ((convCptSLtoLC . stripTrivialTerms .  compactScarceList) sl)
 
 addLstCoeff :: (Num a) => (LstCoeff a) -> (LstCoeff a) -> (LstCoeff a)
 addLstCoeff l m =
@@ -132,3 +135,9 @@ instance (Num a, Eq a) => Num (Poly a) where
     signum = id
     fromInteger = constInt
     negate = negPoly
+
+evaluate :: (Num a, Eq a) => Poly a -> a -> a
+evaluate (PolyL []) _ = 0
+evaluate (PolyL [x]) _ = x
+evaluate (PolyL (p:ps)) x = p + x * (evaluate (PolyL ps) x)
+evaluate p x = evaluate (polySToPolyL p) x
