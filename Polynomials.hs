@@ -1,4 +1,4 @@
-module Polynomails where
+module Polynomials where
 
 import Data.List (sortBy)
 
@@ -136,8 +136,38 @@ instance (Num a, Eq a) => Num (Poly a) where
     fromInteger = constInt
     negate = negPoly
 
+isEqual :: (Num a, Eq a) => Poly a -> Poly a -> Bool
+isEqual (PolyL l) (PolyL m) = (r == s)
+    where PolyL r = (polySToPolyL . polyLToPolyS) (PolyL l)
+          PolyL s = (polySToPolyL . polyLToPolyS) (PolyL m)
+isEqual x y = isEqual (polySToPolyL x) (polySToPolyL y)
+
+instance (Num a, Eq a) => Eq (Poly a) where
+    (==) = isEqual
+
 evaluate :: (Num a, Eq a) => Poly a -> a -> a
 evaluate (PolyL []) _ = 0
 evaluate (PolyL [x]) _ = x
 evaluate (PolyL (p:ps)) x = p + x * (evaluate (PolyL ps) x)
 evaluate p x = evaluate (polySToPolyL p) x
+
+x = PolyS [(1,1)]
+polyFact :: Integer -> Poly Integer
+polyFact n = foldl (*) 1 (map ((x +) . fromInteger) [1.. n])
+
+badFact :: Integer -> Integer
+badFact n = evaluate (polyFact n) 0
+
+polySum :: Integer -> Poly Integer
+polySum n = (foldl (*) 1 (map (1 +) (map ((x *) . fromInteger) [1 ..n]))) - 1
+
+toDouble :: LstCoeff Integer -> LstCoeff Double
+toDouble ns = map (fromInteger) ns
+
+intToDblPoly :: Poly Integer -> Poly Double
+intToDblPoly (PolyL ns) = PolyL (toDouble ns)
+intToDblPoly p = intToDblPoly (polySToPolyL p)
+
+badSum :: Integer -> Integer
+badSum n = round $ (evaluate (intToDblPoly (polySum n)) (1e-11)) * (10^11)
+
